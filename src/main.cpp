@@ -94,7 +94,9 @@ void runPolygon(Polygon<NRAYS, NA>& polygon)
 			 << "Speed:  " << world.car.speed << "\n"
 			 << "Wheels: " << world.car.wheels_angle << "\n"
 			 << "Act[0]: " << world.last_action[0] << "\n"
-			 << "Act[1]: " << world.last_action[1] << "\n";
+			 << "Act[1]: " << world.last_action[1] << "\n"
+             << "MaxW(V): " << polygon.learner.V.max_q() << "\n"
+             << "MaxW(Ac): " << polygon.learner.Ac.max_q() << "\n";
 /*
                                 Reward: {}\nX: {}\nY: {}\n\
                                 Offset: {}\nSigma: {}",
@@ -116,7 +118,8 @@ void runPolygon(Polygon<NRAYS, NA>& polygon)
         // end the current frame
         window.display();
 
-        std::cout << (n += 100) << ": " << polygon.run(100) << std::endl;
+        auto nn = 100;
+        std::cout << (n += nn) << ": " << polygon.run(nn) / nn << std::endl;
     }
 }
 

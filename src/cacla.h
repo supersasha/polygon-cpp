@@ -10,80 +10,8 @@
 #include <cmath>
 #include <iostream>
 
-#include <doublefann.h>
 #include "geom.h"
-
-struct Range
-{
-	Float lo = 0;
-	Float hi = 0;
-
-	constexpr Range() {}
-	constexpr Range(Float alo, Float ahi)
-		:lo(alo), hi(ahi) {}
-};
-
-template<std::size_t NI, std::size_t NO>
-struct Approx
-{
-	std::unique_ptr<fann, decltype(&fann_destroy)> net;
-	std::array<Range, NI> ranges;
-
-	const std::size_t n_hidden;
-
-private:
-	mutable std::array<Float, NI> tmp_in;
-	mutable std::array<Float, NO> tmp_out;
-
-public:
-	template<typename T>
-	Approx(const T& aranges,
-		int ahidden, double learning_rate)
-		: n_hidden(ahidden),
-		  net(nullptr, fann_destroy)
-	{
-		std::copy(aranges.begin(), aranges.begin() + NI, ranges.begin());
-		auto _net = std::unique_ptr<fann, decltype(&fann_destroy)>(
-			fann_create_standard(4, NI, n_hidden, 10, NO)
-			, fann_destroy
-		);
-		net = std::move(_net);
-		fann_set_activation_function_hidden(net.get(), FANN_SIGMOID_SYMMETRIC);
-		fann_set_activation_function_output(net.get(), FANN_LINEAR);
-		fann_set_training_algorithm(net.get(), FANN_TRAIN_INCREMENTAL);
-		fann_set_learning_rate(net.get(), learning_rate);
-		fann_set_learning_momentum(net.get(), 0.0);
-	}
-
-	template<typename X, typename R>
-	void call(const X& x, R& res) const
-	{
-		std::copy(x.cbegin(), x.begin() + NI, tmp_in.begin());
-		auto p = fann_run(net.get(), const_cast<Float*>(tmp_in.data()));
-		std::copy(p, p + NO, res.begin());
-	}
-
-	template<typename X>
-	std::array<Float, NO> call(const X& x) const
-	{
-		std::array<Float, NO> res;
-		std::copy(x.cbegin(), x.begin() + NI, tmp_in.begin());
-		auto p = fann_run(net.get(), const_cast<Float*>(tmp_in.data()));
-		std::copy(p, p + NO, res.begin());
-		return res;
-	} 
-
-	template<typename T, typename X>
-	void update(const T& target, const X& x)
-	{
-		std::copy(x.begin(), x.begin() + NI, tmp_in.begin());
-		std::copy(std::cbegin(target), std::cbegin(target) + NO, tmp_out.begin()); 
-		fann_train(net.get(), const_cast<Float*>(tmp_in.data()),
-			const_cast<Float*>(tmp_out.data()));
-	}
-
-	//TODO: save, load, print
-};
+#include "approx.h"
 
 template <std::size_t NA>
 struct CaclaState
@@ -99,8 +27,8 @@ struct CaclaState
 template <std::size_t NS, std::size_t NA>
 struct Cacla
 {
-	Approx<NS, 1> V;
-	Approx<NS, NA> Ac;
+	ApproxTiny<NS, 1> V;
+	ApproxTiny<NS, NA> Ac;
 	CaclaState<NA> state;
 	std::mt19937 gen;
 

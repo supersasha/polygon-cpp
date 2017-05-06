@@ -1,3 +1,5 @@
+.PHONY: polygon clean run
+
 polygon:
 	scons
 

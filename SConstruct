@@ -1,6 +1,7 @@
 DefaultEnvironment(CC='g++', CCFLAGS='-std=c++14 -O3')
+VariantDir('build', 'src', duplicate=0)
 
-sources = ['main.cpp']
+sources = ['build/main.cpp']
 libs = ['doublefann', 'sfml-graphics', 'sfml-window', 'sfml-system']
 libpath = '/usr/lib/x86_64-linux-gnu'
 

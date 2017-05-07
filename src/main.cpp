@@ -97,6 +97,7 @@ void runPolygon(Polygon<NRAYS, NA>& polygon)
 			 << "Act[1]: " << world.last_action[1] << "\n"
              << "MaxW(V): " << polygon.learner.V.max_q() << "\n"
              << "MaxW(Ac): " << polygon.learner.Ac.max_q() << "\n";
+             ;
 /*
                                 Reward: {}\nX: {}\nY: {}\n\
                                 Offset: {}\nSigma: {}",

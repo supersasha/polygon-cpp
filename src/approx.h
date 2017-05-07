@@ -5,6 +5,7 @@
 #define CNN_SINGLE_THREAD
 
 #include <vector>
+#include <iostream>
 #include <doublefann.h>
 #include <tiny_dnn/tiny_dnn.h>
 
@@ -90,8 +91,12 @@ struct ApproxTiny
 	std::array<Range, NI> ranges;
 	const std::size_t n_hidden;
 
-	mutable network<sequential> net;
+	mutable network<graph> net;
 	gradient_descent opt;
+
+	fc fc1, fc2, fc3;
+	activation::tanh tanh1, tanh2;
+
 
 private:
 	//mutable std::array<Float, NI> tmp_in;
@@ -105,45 +110,40 @@ public:
 		int ahidden, double learning_rate)
 		: n_hidden(ahidden),
 			tmp_in(1, vec_t(NI)),
-			tmp_out(1, vec_t(NO))
+			tmp_out(1, vec_t(NO)),
+
+			fc1(NI, n_hidden),
+			fc2(n_hidden, 10),
+			fc3(10, NO)
 	{
 		std::copy(aranges.begin(), aranges.begin() + NI, ranges.begin());
-		
+
+		/*
+		auto fc1 = fc(NI, n_hidden);
+		auto tanh1 = activation::tanh();
+		auto fc2 = fc(n_hidden, 10);
+		auto tanh2 = activation::tanh();
+		auto fc3 = fc(10, NO);
+		*/
+
+		fc1 << tanh1 << fc2 << tanh2 << fc3;
+		std::cout << "1\n";
+		construct_graph(net, {&fc1}, {&fc3});
+		std::cout << "2\n";
+
+/*		
 		net << fc(NI, n_hidden) << activation::tanh()
 			<< fc(n_hidden, 10) << activation::tanh()
-			//<< fc(10, 10) << activation::tanh()
-			//<< fc(10, 10) << relu()
 			<< fc(10, NO);
-
+*/
 		opt.alpha = learning_rate;
 		//opt.lambda = 0.0001;
-
-		/*
-		tmp_in.resize(1);
-		tmp_in[0].resize(NI);
-
-		tmp_out.resize(1);
-		tmp_out[0].resize(NO);
-		*/
-
-		/*
-		auto _net = std::unique_ptr<fann, decltype(&fann_destroy)>(
-			fann_create_standard(4, NI, n_hidden, 10, NO)
-			, fann_destroy
-		);
-		net = std::move(_net);
-		fann_set_activation_function_hidden(net.get(), FANN_SIGMOID_SYMMETRIC);
-		fann_set_activation_function_output(net.get(), FANN_LINEAR);
-		fann_set_training_algorithm(net.get(), FANN_TRAIN_INCREMENTAL);
-		fann_set_learning_rate(net.get(), learning_rate);
-		fann_set_learning_momentum(net.get(), 0.0);
-
-		*/
 	}
 
 	template<typename X, typename R>
 	void call(const X& x, R& res) const
 	{
+		// TODO: consider optimization
 		std::copy(x.cbegin(), x.begin() + NI, tmp_in[0].begin());
 		//auto p = fann_run(net.get(), const_cast<Float*>(tmp_in.data()));
 		auto p = net.predict(tmp_in[0]);
@@ -153,6 +153,7 @@ public:
 	template<typename X>
 	std::array<Float, NO> call(const X& x) const
 	{
+		// TODO: consider optimization
 		std::array<Float, NO> res;
 		std::copy(x.cbegin(), x.cbegin() + NI, tmp_in[0].begin());
 		//auto p = fann_run(net.get(), const_cast<Float*>(tmp_in.data()));

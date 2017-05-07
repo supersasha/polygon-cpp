@@ -71,10 +71,10 @@ Figure make_track(const std::vector<Pt>& points0,
 		points[i] = scale * points0[i];
 	}
 
-	/*
+/*
 	std::mt19937 gen;
 	std::normal_distribution<Float> nd(0, 0.15 * scale);	
-	*/
+*/
 
 	std::vector<Pt> ps1, ps2;
 	for(auto i = 0; i < n; i++) {

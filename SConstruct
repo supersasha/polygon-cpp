@@ -1,7 +1,7 @@
 import os
 homedir = os.environ['HOME']
 
-DefaultEnvironment(CC='g++', CCFLAGS='-std=c++14 -O3',
+DefaultEnvironment(CC='g++', CCFLAGS='-std=c++14 -O3 -g',
 	CPPPATH=homedir + '/devel/lib/tiny-dnn')
 VariantDir('build', 'src', duplicate=0)
 

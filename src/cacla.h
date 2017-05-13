@@ -51,11 +51,11 @@ struct Cacla
 			std::normal_distribution<Float> nd(mu[i], state.sigma);
 			state.action[i] = nd(gen);	
 		}
-		/*
-		if state.sigma > 0.1 {
+		
+		if(state.sigma > 0.1) {
 			state.sigma *= 0.99999993068528434627048314517621;
 		}
-		*/
+		
 		return state.action;
 	}
 

@@ -85,23 +85,105 @@ using namespace tiny_dnn;
 using namespace tiny_dnn::activation;
 using namespace tiny_dnn::layers;
 
+
+template <std::size_t ...LS>
+class MLPNet
+{
+	typedef activation::tanh actfun_t;
+	std::array<std::size_t, sizeof...(LS)> layer_sizes = {{LS...}};
+	std::array<std::shared_ptr<fc>, sizeof...(LS) - 1> layers;
+	std::array<std::shared_ptr<actfun_t>, sizeof...(LS) - 2> acs;
+	network<graph> m_net;
+public:
+	MLPNet()
+	{
+		for(auto i = 0; i < layer_sizes.size() - 1; i++) {
+			auto layer = std::make_shared<fc>(layer_sizes[i], layer_sizes[i+1]);
+			layers[i] = layer;
+			if(i < layer_sizes.size() - 2) {
+				auto ac = std::make_shared<actfun_t>();
+				acs[i] = ac;
+				*layer << *ac;
+			}
+			if(i > 0) {
+				*(acs[i-1]) << *layer;
+			}
+		}
+
+		construct_graph(m_net, {layers[0]}, {layers[layer_sizes.size() - 2]});
+	}
+
+	network<graph>& net()
+	{
+		return m_net;
+	}
+};
+
+
+struct ResidualUnit
+{
+	input in;
+	fc fc1, fc2;
+	activation::tanh ac1, out;
+	add plus;
+	dropout do1, do2;
+
+	ResidualUnit(std::size_t inout_dim,
+					std::size_t hidden_dim)
+		: in(inout_dim),
+		  //intermediate(inout_dim),
+		  fc1(inout_dim, hidden_dim),
+		  fc2(hidden_dim, inout_dim),
+		  plus(2, inout_dim),
+		  do1(inout_dim, 0.5),
+		  do2(hidden_dim, 0.5)
+	{
+		fc1 << ac1 << fc2;
+		in << fc1;
+		(fc2, in) << plus << out;
+	}
+};
+
+template <std::size_t NI, std::size_t NH, std::size_t NO>
+class ResidualNet
+{
+	fc fc1, fc2;
+	activation::tanh
+	ac1; 
+	ResidualUnit ru1, ru2;
+	network<graph> m_net;
+
+public:
+	ResidualNet()
+	: fc1(NI, NH),
+	  ru1(NH, NH),
+	  ru2(NH, NH),
+	  fc2(NH, NO)
+	{
+		fc1 << ac1 << ru1.in;
+		ru1.out << ru2.in;
+		ru2.out << fc2;
+		construct_graph(m_net, {&fc1}, {&fc2});
+	}
+
+	network<graph>& net()
+	{
+		return m_net;
+	}
+};
+
+
 template<std::size_t NI, std::size_t NO>
 struct ApproxTiny
 {
 	std::array<Range, NI> ranges;
 	const std::size_t n_hidden;
 
-	mutable network<graph> net;
-	gradient_descent opt;
-
-	fc fc1, fc2, fc3;
-	activation::tanh tanh1, tanh2;
-
+	//mutable ResidualNet<NI, 12, NO> arch;
+	mutable MLPNet<NI, 18, 10, NO> arch;
+	momentum opt;
 
 private:
-	//mutable std::array<Float, NI> tmp_in;
-	//mutable std::array<Float, NO> tmp_out;
-
 	mutable std::vector<vec_t> tmp_in;
 	mutable std::vector<vec_t> tmp_out;
 public:
@@ -109,35 +191,17 @@ public:
 	ApproxTiny(const T& aranges,
 		int ahidden, double learning_rate)
 		: n_hidden(ahidden),
-			tmp_in(1, vec_t(NI)),
-			tmp_out(1, vec_t(NO)),
-
-			fc1(NI, n_hidden),
-			fc2(n_hidden, 10),
-			fc3(10, NO)
+		  tmp_in(1, vec_t(NI)),
+		  tmp_out(1, vec_t(NO))
 	{
 		std::copy(aranges.begin(), aranges.begin() + NI, ranges.begin());
+		
+		std::ofstream ofs("graph_net_example.txt");
+		graph_visualizer viz(arch.net(), "graph");
+		viz.generate(ofs);
 
-		/*
-		auto fc1 = fc(NI, n_hidden);
-		auto tanh1 = activation::tanh();
-		auto fc2 = fc(n_hidden, 10);
-		auto tanh2 = activation::tanh();
-		auto fc3 = fc(10, NO);
-		*/
-
-		fc1 << tanh1 << fc2 << tanh2 << fc3;
-		std::cout << "1\n";
-		construct_graph(net, {&fc1}, {&fc3});
-		std::cout << "2\n";
-
-/*		
-		net << fc(NI, n_hidden) << activation::tanh()
-			<< fc(n_hidden, 10) << activation::tanh()
-			<< fc(10, NO);
-*/
 		opt.alpha = learning_rate;
-		//opt.lambda = 0.0001;
+		opt.mu = 0.95;
 	}
 
 	template<typename X, typename R>
@@ -146,7 +210,9 @@ public:
 		// TODO: consider optimization
 		std::copy(x.cbegin(), x.begin() + NI, tmp_in[0].begin());
 		//auto p = fann_run(net.get(), const_cast<Float*>(tmp_in.data()));
-		auto p = net.predict(tmp_in[0]);
+		arch.net().set_netphase(net_phase::test);
+		//do1.set_context(net_phase::test);
+		auto p = arch.net().predict(tmp_in[0]);
 		std::copy(p.cbegin(), p.cend(), res.begin());
 	}
 
@@ -157,7 +223,9 @@ public:
 		std::array<Float, NO> res;
 		std::copy(x.cbegin(), x.cbegin() + NI, tmp_in[0].begin());
 		//auto p = fann_run(net.get(), const_cast<Float*>(tmp_in.data()));
-		auto p = net.predict(tmp_in[0]);
+		arch.net().set_netphase(net_phase::test);
+		//do1.set_context(net_phase::test);
+		auto p = arch.net().predict(tmp_in[0]);
 		std::copy(p.cbegin(), p.cend(), res.begin());
 		return res;
 	} 
@@ -168,6 +236,9 @@ public:
 		std::copy(x.begin(), x.begin() + NI, tmp_in[0].begin());
 		std::copy(std::cbegin(target), std::cbegin(target) + NO, tmp_out[0].begin()); 
 
+		arch.net().set_netphase(net_phase::train);
+
+		network<graph>& net = arch.net();
 		net.fit<mse>(opt, tmp_in, tmp_out,
 						1, //batch
 						1 //epochs
@@ -177,7 +248,7 @@ public:
 	double max_q() const
 	{
 		auto max_w = 0.0;
-		for(auto * l: net) {
+		for(auto * l: arch.net()) {
 			auto wcs = l->weights();
 			for(auto wc: wcs) {
 				for(auto w: *wc) {

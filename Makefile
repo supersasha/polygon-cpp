@@ -1,4 +1,4 @@
-.PHONY: polygon clean run
+.PHONY: polygon clean run show
 
 polygon:
 	scons
@@ -8,3 +8,7 @@ clean:
 
 run: polygon
 	./polygon
+
+show:
+	dot -Tgif graph_net_example.txt -o graph.gif
+	feh graph.gif 

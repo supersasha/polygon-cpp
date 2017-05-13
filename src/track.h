@@ -71,10 +71,10 @@ Figure make_track(const std::vector<Pt>& points0,
 		points[i] = scale * points0[i];
 	}
 
-/*
+
 	std::mt19937 gen;
 	std::normal_distribution<Float> nd(0, 0.15 * scale);	
-*/
+
 
 	std::vector<Pt> ps1, ps2;
 	for(auto i = 0; i < n; i++) {
@@ -87,10 +87,10 @@ Figure make_track(const std::vector<Pt>& points0,
 		auto s = vec_prod_sign(y1, y);
 		auto z1 = x1 + s*d*y;
 		auto z2 = x1 - s*d*y;
-/*
+
 		z1 = z1 + Pt(nd(gen), nd(gen));
 		z2 = z2 + Pt(nd(gen), nd(gen));
-*/
+
 		ps1.emplace_back(z1);
 		ps2.emplace_back(z2);
 	}

@@ -17,23 +17,29 @@ constexpr double powi(double x, int n)
 	return res;
 }
 
-template <std::size_t NRAYS>
+template <std::size_t NRAYS, std::size_t NA>
 struct Car 
 {
+private:
 	Pt center;
 	Pt course;
 
 	double base, length, width;
-	double wheels_angle = 0;
-	double speed = 0;
 
 	std::array<Sect, NRAYS> rays;
-
-	Figure path;
 
 	std::shared_ptr<Figure> walls;
 	std::array<Isx, NRAYS> isxs;
 	std::array<Isx, NRAYS> self_isxs;
+
+public:
+	double wheels_angle = 0;
+	double speed = 0;
+
+	std::array<Float, NRAYS> state;
+	std::array<Float, NA> last_action;
+
+	Figure path;
 
 	Car(const Pt& acenter, const Pt& acourse,
 		std::shared_ptr<Figure> awalls,
@@ -42,11 +48,53 @@ struct Car
 		  length(alength), width(awidth)
 	{
 		base = alength;
+		last_action.fill(0.0);
 		recalc_rays();
 		recalc_path();
 		calc_self_isxs();
 	}
 
+	template <typename A>
+	void act(const A& action)
+	{
+		last_action[0] = action[0];
+		last_action[1] = action[1];
+
+		speed = action[0];
+		wheels_angle = M_PI / 4.0 * action[1];
+		move_or_stop(0.1);
+		recalc_state();
+	}
+	
+	double reward() const
+	{		
+		auto speed_reward = speed;
+		if(speed < 0) {
+			speed_reward = -speed/2.0;
+		}
+
+		auto dist_reward = 0.0;
+		for(const auto& s: state) {
+			auto k = s*(1 - 0.0099*s);
+			if(k < dist_reward)
+				dist_reward = k;
+		}
+
+		auto wheels_reward = -wheels_angle*wheels_angle;
+
+		auto action_penalty1 = action_penalty(last_action);
+		auto action_reward = -action_penalty1*action_penalty1;
+
+		auto speed_penalty = -speed*speed;
+
+		return 10.0*speed_reward
+			+ 20.0*dist_reward // TODO: dist_reward seems not obligatory
+			+ 5.0*wheels_reward
+			+ action_reward
+			+ 10.0*speed_penalty;
+	}
+
+private:
 	void set_pos(const Pt& acenter, const Pt& acourse)
 	{
 		center = acenter;
@@ -55,41 +103,10 @@ struct Car
 		recalc_path();
 	}
 
-	// TODO: unused function?
-	/*
-	double action_penalty(const std::vector<Float>& action) const
-	{
-		const auto h = 0.1;
-		const auto m = 8;
-		const auto c = 5.0;
-		const auto a = h / powi(c, m);
-		const auto la = std::fabs(action[0]);
-		const auto p = a * powi(la, m);
-		auto pp = 0.0;
-		if(la > 20.0) {
-			pp = 1.0;
-		}
-		return p / (1 + std::fabs(p)) + pp; // TODO: p is always positive?
-	}
-	*/
-
-	double val_of_action(double a) const
-	{
-		return a; // TODO: useless function?
-	}
-
 	template <typename A>
-	double action_penalty3(const A& action) const
+	double action_penalty(const A& action) const
 	{
 		return std::fabs(speed - action[0]);
-	}
-
-	template <typename A>
-	void act(const A& action)
-	{
-		speed = val_of_action(action[0]);
-		wheels_angle = M_PI / 4.0 * val_of_action(action[1]);
-		move_or_stop(0.1);
 	}
 
 	void calc_self_isxs()
@@ -161,6 +178,16 @@ struct Car
 							Pt(s,  c));
 		center = rot_center + m * (center - rot_center);
 		course = m * course;
+	}
+
+	void recalc_state()
+	{
+		std::transform(isxs.cbegin(), isxs.cend(),
+			state.begin(),
+			[](const auto& isx) {
+				return (isx.dist < 10) ? isx.dist : 10;
+			}
+		);
 	}
 };
 

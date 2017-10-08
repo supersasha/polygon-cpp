@@ -29,13 +29,13 @@ void runPolygon(Polygon<NRAYS, NA>& polygon)
     const auto& world = polygon.get_world(0);
 
     FigureShape walls(*(polygon.walls));
-    std::vector<CarShape<NRAYS>> cars;
+    std::vector<CarShape<NRAYS, NA>> cars;
     for(auto i = 1; i < polygon.worlds.size(); i++) {
     	cars.emplace_back(
-    		CarShape<NRAYS>(polygon.get_world(i).car, sf::Color::Blue)
+    		CarShape<NRAYS, NA>(polygon.get_world(i).car, sf::Color::Blue)
     	);
     }
-    cars.emplace_back(CarShape<NRAYS>(world.car, sf::Color::Red));
+    cars.emplace_back(CarShape<NRAYS, NA>(world.car, sf::Color::Red));
 
     sf::View gView(sf::Vector2f(0,0), sf::Vector2f(400, -400.0 * 1080 / 1820));
     sf::View tView = window.getDefaultView();
@@ -93,8 +93,8 @@ void runPolygon(Polygon<NRAYS, NA>& polygon)
 		sstr << "Cycles: " << n << "\n"
 			 << "Speed:  " << world.car.speed << "\n"
 			 << "Wheels: " << world.car.wheels_angle << "\n"
-			 << "Act[0]: " << world.last_action[0] << "\n"
-			 << "Act[1]: " << world.last_action[1] << "\n"
+			 << "Act[0]: " << world.car.last_action[0] << "\n"
+			 << "Act[1]: " << world.car.last_action[1] << "\n"
              << "MaxW(V): " << polygon.learner.V.max_q() << "\n"
              << "MaxW(Ac): " << polygon.learner.Ac.max_q() << "\n";
              ;

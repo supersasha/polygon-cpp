@@ -50,79 +50,28 @@ struct MinMax
 
 template <std::size_t NRAYS, std::size_t NA>
 struct World {
-	Car<NRAYS> car;
+	Car<NRAYS, NA> car;
 	std::shared_ptr<Figure> walls;
 	std::shared_ptr<Way> way;
-	WayPoint way_point;
-	WayPoint old_way_point;
-	std::array<Float, NRAYS> state;
-	std::array<Float, NA> last_action;
 
 	World(std::shared_ptr<Figure> awalls, std::shared_ptr<Way> away)
 		: walls(awalls), way(away),
-		  car({-110, 0}, {0, 1}, awalls),
-		  way_point(way->where_is(car.center))
-	{
-		state.fill(0);
-		last_action.fill(0);
-	}
+		  car({-110, 0}, {0, 1}, awalls)
+	{}
 
 	template <typename A>
 	void act(const A& action)
 	{
 		car.act(action);
-		old_way_point = way_point;
-		way_point = way->where_is(car.center);
-		recalc_state();
-		std::copy(action.begin(), action.end(), last_action.begin());
 	}
 
 	double reward() const
 	{
-		auto speed_reward = car.speed;
-		if(car.speed < 0) {
-			speed_reward = -car.speed/2.0;
-		}
-
-		auto dist_reward = 0.0;
-		for(const auto& s: state) {
-			auto k = s*(1 - 0.0099*s);
-			if(k < dist_reward)
-				dist_reward = k;
-		}
-
-		auto wheels_reward = -car.wheels_angle*car.wheels_angle;
-
-		auto action_penalty = car.action_penalty3(last_action);
-		auto action_reward = -action_penalty*action_penalty;
-
-		auto speed_penalty = -car.speed*car.speed;		
-
-		return 10.0*speed_reward
-			+ 20.0*dist_reward
-			+ 5.0*wheels_reward
-			+ action_reward
-			+ 10.0*speed_penalty;
+		return car.reward();
 	}
 
-	void recalc_state()
-	{
-		// TODO: USE std::transform()
-		/*
-		const auto& isx = cars.isxs.cbegin();
-		auto& st = state.begin();
-
-		for(; isx != cars.isx.cend(); isx++, st++) {
-			*st = (isx->dist < 10) ? isx->dist : 10;
-		}
-		*/
-		std::transform(car.isxs.cbegin(), car.isxs.cend(),
-			state.begin(),
-			[](const auto& isx) {
-				return (isx.dist < 10) ? isx.dist : 10;
-			}
-		);
-	}
+	std::array<Float, NRAYS>& state() { return car.state; }
+	const std::array<Float, NRAYS>& state() const { return car.state; }
 
 	constexpr std::size_t nrays() const noexcept
 	{
@@ -186,12 +135,12 @@ struct Polygon
 	{
 		auto& world = worlds[index];
 
-		minmax.norm(world.state, s);
+		minmax.norm(world.state(), s);
 		auto a = learner.get_action(s);
 		world.act(a);
 		auto r = world.reward();
 
-		minmax.norm(world.state, new_s);
+		minmax.norm(world.state(), new_s);
 		for(auto x: new_s) {
 			if(x > 0.9 || x < -0.9) {
 				std::cout << "new_s[.]: " << x << "\n";

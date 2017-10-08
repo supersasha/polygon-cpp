@@ -48,11 +48,11 @@ private:
 	sf::Color m_color;
 };
 
-template <std::size_t NRAYS>
+template <std::size_t NRAYS, std::size_t NA>
 class CarShape: public sf::Drawable
 {
 public:
-	CarShape(const Car<NRAYS>& car, const sf::Color& color)
+	CarShape(const Car<NRAYS, NA>& car, const sf::Color& color)
 		: m_car(car), m_color(color)
 	{}
 
@@ -62,7 +62,7 @@ public:
 	}
 
 private:
-	const Car<NRAYS>& m_car;
+	const Car<NRAYS, NA>& m_car;
 	sf::Color m_color;
 };
 

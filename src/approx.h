@@ -119,6 +119,44 @@ public:
 	}
 };
 
+template <std::size_t ...LS>
+class MLPNetWithDropout
+{
+	typedef activation::tanh actfun_t;
+	std::array<std::size_t, sizeof...(LS)> layer_sizes = {{LS...}};
+	std::array<std::shared_ptr<fc>, sizeof...(LS) - 1> layers;
+	std::array<std::shared_ptr<dropout>, sizeof...(LS) -1> drops;
+	std::array<std::shared_ptr<actfun_t>, sizeof...(LS) - 2> acs;
+	network<graph> m_net;
+public:
+	MLPNetWithDropout()
+	{
+		for(auto i = 0; i < layer_sizes.size() - 1; i++) {
+			auto layer = std::make_shared<fc>(layer_sizes[i], layer_sizes[i+1]);
+			auto drop = std::make_shared<dropout>(layer_sizes[i+1], 0.5);
+			layers[i] = layer;
+			drops[i] = drop;
+			*layer << *drop;
+			if(i < layer_sizes.size() - 2) {
+				auto ac = std::make_shared<actfun_t>();
+				acs[i] = ac;
+				*drop << *ac;
+			}
+			if(i > 0) {
+				*(acs[i-1]) << *layer;
+			}
+		}
+
+		construct_graph(m_net, {layers[0]}, {layers[layer_sizes.size() - 2]});
+	}
+
+	network<graph>& net()
+	{
+		return m_net;
+	}
+};
+
+
 
 struct ResidualUnit
 {
@@ -180,7 +218,8 @@ struct ApproxTiny
 	const std::size_t n_hidden;
 
 	//mutable ResidualNet<NI, 12, NO> arch;
-	mutable MLPNet<NI, 18, 10, NO> arch;
+	//mutable MLPNetWithDropout<NI, 18, 10, NO> arch;
+	mutable MLPNet<NI, 18, 10, 10,10,10,NO> arch;
 	momentum opt;
 
 private:
@@ -201,7 +240,8 @@ public:
 		viz.generate(ofs);
 
 		opt.alpha = learning_rate;
-		opt.mu = 0.95;
+		//opt.mu = 0.95;
+		//opt.lambda = 0.0001;
 	}
 
 	template<typename X, typename R>
